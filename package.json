@@ -1,0 +1,39 @@
+{
+  "name": "taskflow-backend",
+  "version": "1.0.0",
+  "description": "CLT-TaskFlow API — Express v5 + MongoDB + socket.io",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "start": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest --run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "mongoose": "^8.15.0",
+    "nodemailer": "^8.0.1",
+    "socket.io": "^4.8.1",
+    "stripe": "^17.0.0",
+    "uuid": "^11.0.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "@types/nodemailer": "^7.0.11",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
+    "mongodb-memory-server": "^10.1.4",
+    "supertest": "^7.0.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

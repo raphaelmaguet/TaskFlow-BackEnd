@@ -1,0 +1,94 @@
+import 'dotenv/config'
+import { createServer } from 'http'
+import express from 'express'
+import cors from 'cors'
+import { Server as SocketIOServer } from 'socket.io'
+import { createClient } from '@supabase/supabase-js'
+import { connectDB } from './config/db'
+import { env } from './config/env'
+import { initIO } from './config/socket'
+import { publicRateLimit, authenticatedRateLimit } from './middleware/rateLimit'
+import { errorHandler } from './middleware/errorHandler'
+import { authMiddleware } from './middleware/auth'
+import healthRouter from './routes/health'
+import authRouter from './routes/auth'
+import usersRouter from './routes/users'
+import invitationsRouter from './routes/invitations'
+import boardsRouter from './routes/boards'
+import adminRouter from './routes/admin'
+
+const app = express()
+const httpServer = createServer(app)
+
+// ── Socket.IO ────────────────────────────────────────────────────────────────
+export const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: env.ALLOWED_ORIGINS.split(','),
+    credentials: true,
+  },
+})
+
+initIO(io)
+
+const supabaseWs = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+// Auth middleware socket.io : vérifie le JWT Supabase passé dans socket.handshake.auth.token
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth?.token as string | undefined
+  if (!token) return next(new Error('UNAUTHORIZED'))
+  try {
+    const { data: { user }, error } = await supabaseWs.auth.getUser(token)
+    if (error || !user) return next(new Error('UNAUTHORIZED'))
+    socket.data.supabaseId = user.id
+    next()
+  } catch {
+    next(new Error('UNAUTHORIZED'))
+  }
+})
+
+// Gestion des rooms de board
+io.on('connection', (socket) => {
+  socket.on('board:join', (boardId: unknown) => {
+    if (typeof boardId === 'string' && boardId.trim()) {
+      socket.join(`board:${boardId}`)
+    }
+  })
+
+  socket.on('board:leave', (boardId: unknown) => {
+    if (typeof boardId === 'string' && boardId.trim()) {
+      socket.leave(`board:${boardId}`)
+    }
+  })
+})
+
+// ── Core middleware ───────────────────────────────────────────────────────────
+app.use(cors({ origin: env.ALLOWED_ORIGINS.split(','), credentials: true }))
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+
+// ── Public routes (no auth) ───────────────────────────────────────────────────
+app.use('/api', publicRateLimit, healthRouter)
+
+// ── Authenticated routes ──────────────────────────────────────────────────────
+app.use('/api', authenticatedRateLimit, authMiddleware)
+
+app.use('/api/auth', authRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/invitations', invitationsRouter)
+app.use('/api/boards', boardsRouter)
+app.use('/api/admin', adminRouter)
+
+// ── Global error handler ─────────────────────────────────────────────────────
+app.use(errorHandler)
+
+// ── Start ────────────────────────────────────────────────────────────────────
+async function start(): Promise<void> {
+  await connectDB()
+
+  httpServer.listen(Number(env.PORT), () => {
+    console.log(`🚀 Server running on port ${env.PORT} [${env.NODE_ENV}]`)
+    console.log(`   Health: http://localhost:${env.PORT}/api/health`)
+  })
+}
+
+start()
