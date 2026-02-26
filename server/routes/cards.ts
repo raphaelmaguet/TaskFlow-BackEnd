@@ -5,7 +5,10 @@ import { AuthRequest } from '../middleware/auth'
 import { Board } from '../models/Board'
 import { Column } from '../models/Column'
 import { Card } from '../models/Card'
+import { Notification } from '../models/Notification'
+import { User } from '../models/User'
 import { getIO } from '../config/socket'
+import { sendCardAssignedEmail } from '../lib/email'
 import type { CardDTO } from '../../shared/types'
 import type { ICardLabel, IChecklistItem } from '../models/Card'
 
@@ -190,6 +193,11 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
     }
 
     const { title, description, deadline, labels, assignees } = parse.data
+
+    // Track old assignees and checklist for notification diff
+    const oldAssignees = [...card.assignees]
+    const oldChecklist = card.checklist.map((i) => ({ id: i.id, assigneeId: i.assigneeId }))
+
     if (title !== undefined) card.title = title
     if (description !== undefined) card.description = description
     if (parse.data.startDate !== undefined) card.startDate = parse.data.startDate ? new Date(parse.data.startDate) : undefined
@@ -202,6 +210,113 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
     await card.save()
     const updatedDto = toCardDTO(card.toObject())
     try { getIO().to(`board:${boardId}`).emit('card:updated', { boardId, card: updatedDto }) } catch (_) {}
+
+    // ── Create notifications for newly assigned users ────────────────────
+    try {
+      const senderUser = await User.findOne({ supabaseId: userId }).lean()
+      const senderName = senderUser?.name ?? 'Un membre'
+      const boardTitle = board.title ?? 'Board'
+      const cardTitle = card.title
+
+      // Card-level assignee notifications
+      if (assignees !== undefined) {
+        const newAssignees = assignees.filter((a) => !oldAssignees.includes(a) && a !== userId)
+
+        // Récupérer le nom de la colonne pour l'email
+        let columnTitle: string | undefined
+        try {
+          const col = await Column.findById(card.columnId).lean()
+          if (col) columnTitle = col.title
+        } catch (_) {}
+
+        for (const recipientId of newAssignees) {
+          const notif = await Notification.create({
+            recipientId,
+            senderId: userId,
+            senderName,
+            type: 'card_assigned',
+            cardTitle,
+            boardTitle,
+            boardId,
+            cardId,
+          })
+          try {
+            getIO().to(`user:${recipientId}`).emit('notification:new', {
+              id: notif._id.toString(),
+              recipientId,
+              senderId: userId,
+              senderName,
+              type: 'card_assigned',
+              cardTitle,
+              boardTitle,
+              boardId,
+              cardId,
+              isRead: false,
+              createdAt: notif.createdAt.toISOString(),
+            })
+          } catch (_) {}
+
+          // Envoyer un email au membre assigné
+          try {
+            const recipientUser = await User.findOne({ supabaseId: recipientId }).lean()
+            if (recipientUser?.email) {
+              sendCardAssignedEmail({
+                toEmail: recipientUser.email,
+                assignerName: senderName,
+                boardTitle,
+                boardId,
+                cardId,
+                cardTitle,
+                cardDescription: card.description || undefined,
+                columnTitle,
+                deadline: card.deadline ? card.deadline.toISOString() : undefined,
+                labels: card.labels?.map((l) => ({ text: l.text, color: l.color })),
+              }).catch((err) => console.error('[EMAIL] card-assigned send error:', err))
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Checklist item assignee notifications
+      if (parse.data.checklist !== undefined) {
+        for (const newItem of parse.data.checklist) {
+          if (!newItem.assigneeId || newItem.assigneeId === userId) continue
+          const oldItem = oldChecklist.find((o) => o.id === newItem.id)
+          if (!oldItem || oldItem.assigneeId !== newItem.assigneeId) {
+            const notif = await Notification.create({
+              recipientId: newItem.assigneeId,
+              senderId: userId,
+              senderName,
+              type: 'checklist_item_assigned',
+              cardTitle,
+              boardTitle,
+              boardId,
+              cardId,
+              checklistItemText: newItem.text,
+            })
+            try {
+              getIO().to(`user:${newItem.assigneeId}`).emit('notification:new', {
+                id: notif._id.toString(),
+                recipientId: newItem.assigneeId,
+                senderId: userId,
+                senderName,
+                type: 'checklist_item_assigned',
+                cardTitle,
+                boardTitle,
+                boardId,
+                cardId,
+                checklistItemText: newItem.text,
+                isRead: false,
+                createdAt: notif.createdAt.toISOString(),
+              })
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (notifErr) {
+      console.error('[PATCH cards] notification error (non-blocking):', notifErr)
+    }
+
     res.json(updatedDto)
   } catch (error) {
     console.error('[PATCH /boards/:boardId/cards/:cardId]', error)

@@ -42,6 +42,7 @@ router.get('/me', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 const UpdateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
+  avatarUrl: z.string().url().max(2000).optional().nullable(),
 })
 
 router.patch('/me', async (req: AuthRequest, res: Response): Promise<void> => {

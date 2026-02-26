@@ -15,7 +15,7 @@ const EnvSchema = z.object({
   SMTP_PORT: z.string().default('587'),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().default('TaskFlow <noreply@taskflow.app>'),
+  EMAIL_FROM: z.string().default('Laneo <noreply@laneo.app>'),
   APP_URL: z.string().default('http://localhost:5173'),
 })
 

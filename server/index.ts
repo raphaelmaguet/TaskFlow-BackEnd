@@ -16,6 +16,7 @@ import usersRouter from './routes/users'
 import invitationsRouter from './routes/invitations'
 import boardsRouter from './routes/boards'
 import adminRouter from './routes/admin'
+import notificationsRouter from './routes/notifications'
 
 const app = express()
 const httpServer = createServer(app)
@@ -48,6 +49,12 @@ io.use(async (socket, next) => {
 
 // Gestion des rooms de board
 io.on('connection', (socket) => {
+  // Auto-join user room for personal notifications
+  const supabaseId = socket.data.supabaseId as string | undefined
+  if (supabaseId) {
+    socket.join(`user:${supabaseId}`)
+  }
+
   socket.on('board:join', (boardId: unknown) => {
     if (typeof boardId === 'string' && boardId.trim()) {
       socket.join(`board:${boardId}`)
@@ -77,6 +84,7 @@ app.use('/api/users', usersRouter)
 app.use('/api/invitations', invitationsRouter)
 app.use('/api/boards', boardsRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/notifications', notificationsRouter)
 
 // ── Global error handler ─────────────────────────────────────────────────────
 app.use(errorHandler)
