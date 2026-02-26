@@ -5,12 +5,13 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies
+# Install dependencies (production + tsx needed at runtime)
 RUN npm ci
 
 # Copy source
 COPY . .
 
-EXPOSE 3000
+ENV PORT=80
+EXPOSE 80
 
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]
