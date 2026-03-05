@@ -34,8 +34,9 @@ initIO(io)
 const supabaseWs = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
 // Auth middleware socket.io : vérifie le JWT Supabase passé dans socket.handshake.auth.token
+// Fallback sur socket.handshake.query.token pour les clients mobiles (iOS SocketIO connectParams)
 io.use(async (socket, next) => {
-  const token = socket.handshake.auth?.token as string | undefined
+  const token = (socket.handshake.auth?.token ?? socket.handshake.query?.token) as string | undefined
   if (!token) return next(new Error('UNAUTHORIZED'))
   try {
     const { data: { user }, error } = await supabaseWs.auth.getUser(token)
