@@ -27,9 +27,14 @@ function toCardDTO(card: any): CardDTO {
     position: card.position,
     startDate: card.startDate ? new Date(card.startDate).toISOString() : undefined,
     deadline: card.deadline ? new Date(card.deadline).toISOString() : undefined,
-    labels: card.labels ?? [],
+    labels: (card.labels ?? []).map((l: any) => ({ text: l.text, color: l.color })),
     assignees: card.assignees ?? [],
-    checklist: card.checklist ?? [],
+    checklist: (card.checklist ?? []).map((item: any) => ({
+      id: item.id,
+      text: item.text,
+      isDone: item.isDone ?? false,
+      ...(item.assigneeId != null ? { assigneeId: item.assigneeId } : {}),
+    })),
     isDone: card.isDone ?? false,
     isArchived: card.isArchived ?? false,
     createdAt: card.createdAt instanceof Date ? card.createdAt.toISOString() : card.createdAt,
@@ -57,7 +62,7 @@ const ChecklistItemSchema = z.object({
   id: z.string().min(1),
   text: z.string().min(1).max(200),
   isDone: z.boolean(),
-  assigneeId: z.string().optional(),
+  assigneeId: z.string().nullable().optional(),
 })
 
 const UpdateCardSchema = z.object({
@@ -204,7 +209,12 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
     if (deadline !== undefined) card.deadline = deadline ? new Date(deadline) : undefined
     if (labels !== undefined) card.labels = labels as ICardLabel[]
     if (assignees !== undefined) card.assignees = assignees
-    if (parse.data.checklist !== undefined) card.checklist = parse.data.checklist as IChecklistItem[]
+    if (parse.data.checklist !== undefined) {
+      card.checklist = parse.data.checklist.map(item => ({
+        ...item,
+        assigneeId: item.assigneeId ?? undefined,
+      })) as IChecklistItem[]
+    }
     if (parse.data.isDone !== undefined) card.isDone = parse.data.isDone
 
     await card.save()
