@@ -26,8 +26,8 @@ function toColumnDTO(col: any): ColumnDTO {
 }
 
 /** Vérifie que l'utilisateur est membre du board et retourne le board. */
-async function assertMember(boardId: string, supabaseId: string) {
-  return Board.findOne({ _id: boardId, 'members.userId': supabaseId, isArchived: false })
+async function assertMember(boardId: string, authId: string) {
+  return Board.findOne({ _id: boardId, 'members.userId': authId, isArchived: false })
 }
 
 // ── Validation schemas ────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ const ReorderColumnsSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const boardId = req.params.boardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -98,7 +98,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
 router.patch('/reorder', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const boardId = req.params.boardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -152,7 +152,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const boardId = req.params.boardId as string
     const columnId = req.params.id as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -192,7 +192,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => 
   try {
     const boardId = req.params.boardId as string
     const columnId = req.params.id as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     // Seul l'owner peut supprimer des colonnes
     const board = await Board.findOne({ _id: boardId, ownerId: userId, isArchived: false })

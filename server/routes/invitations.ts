@@ -34,7 +34,7 @@ router.get('/:token', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    const inviter = await User.findOne({ supabaseId: invitation.invitedBy }).lean()
+    const inviter = await User.findOne({ authId: invitation.invitedBy }).lean()
 
     res.json({
       boardId: invitation.boardId.toString(),
@@ -78,13 +78,13 @@ router.post('/:token/accept', async (req: AuthRequest, res: Response): Promise<v
       return
     }
 
-    const supabaseId = req.user!.supabaseId
+    const authId = req.user!.authId
 
     // Already a member — idempotent
-    const alreadyMember = board.members.some((m) => m.userId === supabaseId)
+    const alreadyMember = board.members.some((m) => m.userId === authId)
 
     if (!alreadyMember) {
-      board.members.push({ userId: supabaseId, role: 'member' })
+      board.members.push({ userId: authId, role: 'member' })
       await board.save()
     }
 
