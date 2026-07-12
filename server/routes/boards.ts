@@ -78,20 +78,20 @@ function toBoardDTO(board: any): BoardDTO {
 }
 
 /** Vérifie que l'utilisateur est membre du board (owner ou member). */
-async function assertMember(boardId: string, supabaseId: string) {
+async function assertMember(boardId: string, authId: string) {
   const board = await Board.findOne({
     _id: boardId,
-    'members.userId': supabaseId,
+    'members.userId': authId,
     isArchived: false,
   })
   return board
 }
 
 /** Vérifie que l'utilisateur est owner du board. */
-async function assertOwner(boardId: string, supabaseId: string) {
+async function assertOwner(boardId: string, authId: string) {
   const board = await Board.findOne({
     _id: boardId,
-    ownerId: supabaseId,
+    ownerId: authId,
     isArchived: false,
   })
   return board
@@ -126,7 +126,7 @@ const CreateInvitationSchema = z.object({
  */
 router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const boards = await Board.find({
       'members.userId': userId,
@@ -148,7 +148,7 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.get('/archived', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const boards = await Board.find({
       ownerId: userId,
@@ -177,7 +177,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
     }
 
     const { title, background } = parse.data
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await Board.create({
       title,
@@ -201,7 +201,7 @@ router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await assertMember(req.params.id as string, userId)
 
     if (!board) {
@@ -245,7 +245,7 @@ router.get('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await assertOwner(req.params.id as string, userId)
 
     if (!board) {
@@ -277,7 +277,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await assertOwner(req.params.id as string, userId)
 
     if (!board) {
@@ -301,7 +301,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => 
  */
 router.patch('/:id/unarchive', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await Board.findOne({
       _id: req.params.id,
       ownerId: userId,
@@ -329,7 +329,7 @@ router.patch('/:id/unarchive', async (req: AuthRequest, res: Response): Promise<
  */
 router.get('/:id/members', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await assertMember(req.params.id as string, userId)
 
     if (!board) {
@@ -338,10 +338,10 @@ router.get('/:id/members', async (req: AuthRequest, res: Response): Promise<void
     }
 
     const memberIds = board.members.map((m) => m.userId)
-    const users = await User.find({ supabaseId: { $in: memberIds } }).lean()
+    const users = await User.find({ authId: { $in: memberIds } }).lean()
 
     const userMap: Record<string, any> = {}
-    for (const u of users) userMap[u.supabaseId] = u
+    for (const u of users) userMap[u.authId] = u
 
     const result = board.members.map((m) => {
       const u = userMap[m.userId]
@@ -367,7 +367,7 @@ router.get('/:id/members', async (req: AuthRequest, res: Response): Promise<void
  */
 router.delete('/:id/members/:userId', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const currentUserId = req.user!.supabaseId
+    const currentUserId = req.user!.authId
     const board = await assertOwner(req.params.id as string, currentUserId)
 
     if (!board) {
@@ -405,7 +405,7 @@ router.delete('/:id/members/:userId', async (req: AuthRequest, res: Response): P
  */
 router.post('/:id/invitations', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const board = await assertMember(req.params.id as string, userId)
 
     if (!board) {
@@ -423,7 +423,7 @@ router.post('/:id/invitations', async (req: AuthRequest, res: Response): Promise
 
     // Vérifie si l'utilisateur invité est déjà membre
     const existingUser = await User.findOne({ email }).lean()
-    if (existingUser && board.members.some((m) => m.userId === existingUser.supabaseId)) {
+    if (existingUser && board.members.some((m) => m.userId === existingUser.authId)) {
       res.status(409).json({ error: 'User is already a board member', code: 'ALREADY_MEMBER' })
       return
     }
@@ -434,7 +434,7 @@ router.post('/:id/invitations', async (req: AuthRequest, res: Response): Promise
       { status: 'expired' }
     )
 
-    const inviter = await User.findOne({ supabaseId: userId }).lean()
+    const inviter = await User.findOne({ authId: userId }).lean()
 
     const invitation = await Invitation.create({
       boardId: board._id,

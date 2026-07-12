@@ -10,7 +10,7 @@ const router = Router()
  */
 router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const notifications = await Notification.find({ recipientId: userId })
       .sort({ createdAt: -1 })
       .limit(50)
@@ -44,7 +44,7 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.patch('/:id/read', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const notif = await Notification.findOneAndUpdate(
       { _id: req.params.id, recipientId: userId },
       { isRead: true },
@@ -69,7 +69,7 @@ router.patch('/:id/read', async (req: AuthRequest, res: Response): Promise<void>
  */
 router.post('/read-all', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     await Notification.updateMany({ recipientId: userId, isRead: false }, { isRead: true })
     res.json({ message: 'All notifications marked as read' })
   } catch (error) {
@@ -84,7 +84,7 @@ router.post('/read-all', async (req: AuthRequest, res: Response): Promise<void> 
  */
 router.delete('/:id', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
     const result = await Notification.findOneAndDelete({ _id: req.params.id, recipientId: userId })
 
     if (!result) {

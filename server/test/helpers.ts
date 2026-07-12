@@ -37,19 +37,19 @@ export async function clearTestDB(): Promise<void> {
 // ── Test user presets ─────────────────────────────────────────────────────────
 
 export interface TestUser {
-  supabaseId: string
+  authId: string
   email: string
   isAdmin: boolean
 }
 
 export const ADMIN_USER: TestUser = {
-  supabaseId: 'admin-supabase-id',
+  authId: 'admin-auth-id',
   email: 'admin@test.com',
   isAdmin: true,
 }
 
 export const MEMBER_USER: TestUser = {
-  supabaseId: 'member-supabase-id',
+  authId: 'member-auth-id',
   email: 'member@test.com',
   isAdmin: false,
 }
@@ -58,13 +58,13 @@ export const MEMBER_USER: TestUser = {
 
 /**
  * Crée une application Express minimale sans démarrer le serveur HTTP.
- * L'authMiddleware Supabase est remplacé par une injection directe de req.user.
+ * L'authMiddleware Appwrite est remplacé par une injection directe de req.user.
  */
 export function createTestApp(user: TestUser = MEMBER_USER) {
   const app = express()
   app.use(express.json())
 
-  // Mock auth : injecter l'utilisateur directement (bypass Supabase)
+  // Mock auth : injecter l'utilisateur directement (bypass Appwrite)
   app.use((req: AuthRequest, _res, next) => {
     req.user = user
     next()

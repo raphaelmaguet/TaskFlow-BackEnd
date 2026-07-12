@@ -3,7 +3,7 @@ import { createServer } from 'http'
 import express from 'express'
 import cors from 'cors'
 import { Server as SocketIOServer } from 'socket.io'
-import { createClient } from '@supabase/supabase-js'
+import { Client, Account } from 'node-appwrite'
 import { connectDB } from './config/db'
 import { env } from './config/env'
 import { initIO } from './config/socket'
@@ -31,17 +31,19 @@ export const io = new SocketIOServer(httpServer, {
 
 initIO(io)
 
-const supabaseWs = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-
-// Auth middleware socket.io : vérifie le JWT Supabase passé dans socket.handshake.auth.token
+// Auth middleware socket.io : vérifie le JWT Appwrite passé dans socket.handshake.auth.token
 // Fallback sur socket.handshake.query.token pour les clients mobiles (iOS SocketIO connectParams)
 io.use(async (socket, next) => {
   const token = (socket.handshake.auth?.token ?? socket.handshake.query?.token) as string | undefined
   if (!token) return next(new Error('UNAUTHORIZED'))
   try {
-    const { data: { user }, error } = await supabaseWs.auth.getUser(token)
-    if (error || !user) return next(new Error('UNAUTHORIZED'))
-    socket.data.supabaseId = user.id
+    // Client jetable par connexion — ne jamais réutiliser un Client porteur de JWT.
+    const client = new Client()
+      .setEndpoint(env.APPWRITE_ENDPOINT)
+      .setProject(env.APPWRITE_PROJECT_ID)
+      .setJWT(token)
+    const account = await new Account(client).get()
+    socket.data.authId = account.$id
     next()
   } catch {
     next(new Error('UNAUTHORIZED'))
@@ -51,9 +53,9 @@ io.use(async (socket, next) => {
 // Gestion des rooms de board
 io.on('connection', (socket) => {
   // Auto-join user room for personal notifications
-  const supabaseId = socket.data.supabaseId as string | undefined
-  if (supabaseId) {
-    socket.join(`user:${supabaseId}`)
+  const authId = socket.data.authId as string | undefined
+  if (authId) {
+    socket.join(`user:${authId}`)
   }
 
   socket.on('board:join', (boardId: unknown) => {

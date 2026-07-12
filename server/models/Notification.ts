@@ -5,9 +5,9 @@ export type NotificationType =
   | 'checklist_item_assigned'
 
 export interface INotification extends Document {
-  /** supabaseId du destinataire */
+  /** authId du destinataire */
   recipientId: string
-  /** supabaseId de l'émetteur */
+  /** authId de l'émetteur */
   senderId: string
   senderName: string
   type: NotificationType

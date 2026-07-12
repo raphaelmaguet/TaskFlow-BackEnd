@@ -11,7 +11,7 @@ const router = Router()
  */
 router.get('/me', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = await User.findOne({ supabaseId: req.user!.supabaseId }).lean()
+    const user = await User.findOne({ authId: req.user!.authId }).lean()
 
     if (!user) {
       res.status(404).json({ error: 'User not found. Call /api/auth/sync first.', code: 'NOT_FOUND' })
@@ -20,7 +20,7 @@ router.get('/me', async (req: AuthRequest, res: Response): Promise<void> => {
 
     res.json({
       id: user._id.toString(),
-      supabaseId: user.supabaseId,
+      authId: user.authId,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
@@ -54,7 +54,7 @@ router.patch('/me', async (req: AuthRequest, res: Response): Promise<void> => {
 
   try {
     const user = await User.findOneAndUpdate(
-      { supabaseId: req.user!.supabaseId },
+      { authId: req.user!.authId },
       { $set: parsed.data },
       { new: true }
     ).lean()
@@ -66,7 +66,7 @@ router.patch('/me', async (req: AuthRequest, res: Response): Promise<void> => {
 
     res.json({
       id: user._id.toString(),
-      supabaseId: user.supabaseId,
+      authId: user.authId,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,

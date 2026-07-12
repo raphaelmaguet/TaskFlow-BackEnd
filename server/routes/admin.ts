@@ -19,7 +19,7 @@ router.use(isAdmin)
 
 function toUserDTO(user: {
   _id: mongoose.Types.ObjectId
-  supabaseId: string
+  authId: string
   email: string
   name: string
   avatarUrl?: string
@@ -31,7 +31,7 @@ function toUserDTO(user: {
 }) {
   return {
     id: user._id.toString(),
-    supabaseId: user.supabaseId,
+    authId: user.authId,
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl,
@@ -125,7 +125,7 @@ router.patch('/users/:id', async (req: AuthRequest, res: Response): Promise<void
     }
 
     // Sécurité : un admin ne peut pas se retirer lui-même son propre rôle
-    if (target.supabaseId === req.user!.supabaseId && parsed.data.isAdmin === false) {
+    if (target.authId === req.user!.authId && parsed.data.isAdmin === false) {
       res.status(403).json({ error: 'You cannot remove your own admin role', code: 'FORBIDDEN' })
       return
     }

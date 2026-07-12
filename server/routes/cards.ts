@@ -42,8 +42,8 @@ function toCardDTO(card: any): CardDTO {
   }
 }
 
-async function assertMember(boardId: string, supabaseId: string) {
-  return Board.findOne({ _id: boardId, 'members.userId': supabaseId, isArchived: false })
+async function assertMember(boardId: string, authId: string) {
+  return Board.findOne({ _id: boardId, 'members.userId': authId, isArchived: false })
 }
 
 // ── Validation schemas ────────────────────────────────────────────────────────
@@ -91,7 +91,7 @@ const MoveCardSchema = z.object({
 router.post('/', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const boardId = req.params.boardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -147,7 +147,7 @@ router.get('/:cardId', async (req: AuthRequest, res: Response): Promise<void> =>
   try {
     const boardId = req.params.boardId as string
     const cardId = req.params.cardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -177,7 +177,7 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
   try {
     const boardId = req.params.boardId as string
     const cardId = req.params.cardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -223,7 +223,7 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
 
     // ── Create notifications for newly assigned users ────────────────────
     try {
-      const senderUser = await User.findOne({ supabaseId: userId }).lean()
+      const senderUser = await User.findOne({ authId: userId }).lean()
       const senderName = senderUser?.name ?? 'Un membre'
       const boardTitle = board.title ?? 'Board'
       const cardTitle = card.title
@@ -268,7 +268,7 @@ router.patch('/:cardId', async (req: AuthRequest, res: Response): Promise<void> 
 
           // Envoyer un email au membre assigné
           try {
-            const recipientUser = await User.findOne({ supabaseId: recipientId }).lean()
+            const recipientUser = await User.findOne({ authId: recipientId }).lean()
             if (recipientUser?.email) {
               sendCardAssignedEmail({
                 toEmail: recipientUser.email,
@@ -342,7 +342,7 @@ router.delete('/:cardId', async (req: AuthRequest, res: Response): Promise<void>
   try {
     const boardId = req.params.boardId as string
     const cardId = req.params.cardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {
@@ -383,7 +383,7 @@ router.patch('/:cardId/move', async (req: AuthRequest, res: Response): Promise<v
   try {
     const boardId = req.params.boardId as string
     const cardId = req.params.cardId as string
-    const userId = req.user!.supabaseId
+    const userId = req.user!.authId
 
     const board = await assertMember(boardId, userId)
     if (!board) {

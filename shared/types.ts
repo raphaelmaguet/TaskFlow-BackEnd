@@ -15,7 +15,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'expired'
 
 export interface UserDTO {
   id: string
-  supabaseId: string
+  authId: string
   email: string
   name: string
   avatarUrl?: string

@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose'
 
 export interface IUser extends Document {
-  supabaseId: string
+  authId: string
   email: string
   name: string
   avatarUrl?: string
@@ -15,7 +15,7 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
-    supabaseId: { type: String, required: true, unique: true },
+    authId: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     name: { type: String, required: true, default: '' },
     avatarUrl: { type: String },
@@ -27,7 +27,7 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 )
 
-UserSchema.index({ supabaseId: 1 }, { unique: true })
+UserSchema.index({ authId: 1 }, { unique: true })
 UserSchema.index({ email: 1 }, { unique: true })
 
 export const User = mongoose.model<IUser>('User', UserSchema)

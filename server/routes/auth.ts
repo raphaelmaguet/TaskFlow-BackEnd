@@ -1,40 +1,45 @@
 import { Router, Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
+import { Client, Users } from 'node-appwrite'
 import { env } from '../config/env'
 import { AuthRequest } from '../middleware/auth'
 import { User } from '../models/User'
 
-const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+// Client server-side porteur de l'API key (lecture du profil / des identités Appwrite).
+const appwriteAdmin = new Client()
+  .setEndpoint(env.APPWRITE_ENDPOINT)
+  .setProject(env.APPWRITE_PROJECT_ID)
+  .setKey(env.APPWRITE_API_KEY)
+const appwriteUsers = new Users(appwriteAdmin)
 
 const router = Router()
 
 /**
  * POST /api/auth/sync
- * Crée ou met à jour le document User MongoDB depuis le JWT Supabase.
+ * Crée ou met à jour le document User MongoDB depuis le JWT Appwrite.
  * Appelé automatiquement après chaque inscription/connexion côté client.
- * Pour les utilisateurs Google OAuth, récupère le nom complet depuis les métadonnées Supabase.
+ * Pour les utilisateurs Google OAuth, récupère le nom complet via le server SDK Appwrite.
  */
 router.post('/sync', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { supabaseId, email } = req.user!
+    const { authId, email } = req.user!
 
-    // Récupère les métadonnées utilisateur (nom complet, avatar) depuis Supabase
+    // Récupère les métadonnées utilisateur (nom, avatar) via le server SDK Appwrite.
+    // Appwrite ne stocke pas nativement l'avatar_url Google → on tente les prefs,
+    // sinon on retombe sur le préfixe de l'email (comportement historique).
     let displayName = email.split('@')[0]
     let avatarUrl: string | undefined
     try {
-      const { data } = await supabaseAdmin.auth.admin.getUserById(supabaseId)
-      if (data?.user) {
-        const meta = data.user.user_metadata
-        if (meta?.full_name) displayName = meta.full_name
-        else if (meta?.name) displayName = meta.name
-        if (meta?.avatar_url) avatarUrl = meta.avatar_url
-      }
+      const u = await appwriteUsers.get(authId)
+      if (u.name) displayName = u.name
+      const prefs = (u.prefs ?? {}) as Record<string, unknown>
+      const prefAvatar = prefs.avatarUrl ?? prefs.avatar
+      if (typeof prefAvatar === 'string' && prefAvatar) avatarUrl = prefAvatar
     } catch {
       // Pas bloquant — on utilise le fallback email
     }
 
     const updateFields: Record<string, unknown> = {
-      supabaseId,
+      authId,
       email,
       name: displayName,
       subscriptionTier: 'free',
@@ -42,11 +47,11 @@ router.post('/sync', async (req: AuthRequest, res: Response): Promise<void> => {
       isAdmin: false,
     }
     if (avatarUrl) {
-      (updateFields as Record<string, unknown>).avatarUrl = avatarUrl
+      updateFields.avatarUrl = avatarUrl
     }
 
     const user = await User.findOneAndUpdate(
-      { supabaseId },
+      { authId },
       {
         $setOnInsert: updateFields,
       },

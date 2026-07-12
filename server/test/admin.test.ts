@@ -29,7 +29,7 @@ const memberApp = createTestApp(MEMBER_USER)
 
 async function createUser(overrides: Record<string, unknown> = {}) {
   return User.create({
-    supabaseId: `uid-${Math.random().toString(36).slice(2)}`,
+    authId: `uid-${Math.random().toString(36).slice(2)}`,
     email: `user-${Math.random().toString(36).slice(2)}@test.com`,
     name: 'Test User',
     isActive: true,
@@ -52,8 +52,8 @@ describe('GET /api/admin/users', () => {
   })
 
   it('retourne les utilisateurs créés en base', async () => {
-    await createUser({ name: 'Alice', email: 'alice@test.com', supabaseId: 'uid-alice' })
-    await createUser({ name: 'Bob', email: 'bob@test.com', supabaseId: 'uid-bob' })
+    await createUser({ name: 'Alice', email: 'alice@test.com', authId: 'uid-alice' })
+    await createUser({ name: 'Bob', email: 'bob@test.com', authId: 'uid-bob' })
 
     const res = await supertest(adminApp).get('/api/admin/users')
     expect(res.status).toBe(200)
@@ -62,7 +62,7 @@ describe('GET /api/admin/users', () => {
   })
 
   it('sérialise les champs attendus dans chaque user', async () => {
-    await createUser({ name: 'Charlie', email: 'charlie@test.com', supabaseId: 'uid-charlie' })
+    await createUser({ name: 'Charlie', email: 'charlie@test.com', authId: 'uid-charlie' })
     const res = await supertest(adminApp).get('/api/admin/users')
     const user = res.body.users[0]
     expect(user.id).toBeDefined()
@@ -76,8 +76,8 @@ describe('GET /api/admin/users', () => {
   })
 
   it('filtre par nom (insensible à la casse)', async () => {
-    await createUser({ name: 'Alice Martin', supabaseId: 'uid-a', email: 'alice@t.com' })
-    await createUser({ name: 'Bob Dupont', supabaseId: 'uid-b', email: 'bob@t.com' })
+    await createUser({ name: 'Alice Martin', authId: 'uid-a', email: 'alice@t.com' })
+    await createUser({ name: 'Bob Dupont', authId: 'uid-b', email: 'bob@t.com' })
 
     const res = await supertest(adminApp).get('/api/admin/users?q=alice')
     expect(res.status).toBe(200)
@@ -86,8 +86,8 @@ describe('GET /api/admin/users', () => {
   })
 
   it('filtre par email', async () => {
-    await createUser({ name: 'Dev', supabaseId: 'uid-dev', email: 'dev@company.com' })
-    await createUser({ name: 'User', supabaseId: 'uid-usr', email: 'user@example.com' })
+    await createUser({ name: 'Dev', authId: 'uid-dev', email: 'dev@company.com' })
+    await createUser({ name: 'User', authId: 'uid-usr', email: 'user@example.com' })
 
     const res = await supertest(adminApp).get('/api/admin/users?q=company')
     expect(res.body.total).toBe(1)
@@ -95,9 +95,9 @@ describe('GET /api/admin/users', () => {
   })
 
   it('pagine correctement (limit=1)', async () => {
-    await createUser({ supabaseId: 'p1', email: 'p1@t.com' })
-    await createUser({ supabaseId: 'p2', email: 'p2@t.com' })
-    await createUser({ supabaseId: 'p3', email: 'p3@t.com' })
+    await createUser({ authId: 'p1', email: 'p1@t.com' })
+    await createUser({ authId: 'p2', email: 'p2@t.com' })
+    await createUser({ authId: 'p3', email: 'p3@t.com' })
 
     const res = await supertest(adminApp).get('/api/admin/users?limit=1&page=1')
     expect(res.status).toBe(200)
@@ -118,7 +118,7 @@ describe('GET /api/admin/users', () => {
 
 describe('PATCH /api/admin/users/:id', () => {
   it('désactive un utilisateur (isActive → false)', async () => {
-    const user = await createUser({ name: 'Target', supabaseId: 'uid-target', email: 'target@t.com' })
+    const user = await createUser({ name: 'Target', authId: 'uid-target', email: 'target@t.com' })
     const id = (user._id as { toString(): string }).toString()
 
     const res = await supertest(adminApp).patch(`/api/admin/users/${id}`).send({ isActive: false })
@@ -131,7 +131,7 @@ describe('PATCH /api/admin/users/:id', () => {
   })
 
   it('accorde le rôle admin à un utilisateur', async () => {
-    const user = await createUser({ supabaseId: 'uid-promo', email: 'promo@t.com' })
+    const user = await createUser({ authId: 'uid-promo', email: 'promo@t.com' })
     const id = (user._id as { toString(): string }).toString()
 
     const res = await supertest(adminApp).patch(`/api/admin/users/${id}`).send({ isAdmin: true })
@@ -140,7 +140,7 @@ describe('PATCH /api/admin/users/:id', () => {
   })
 
   it('change le plan de free à pro', async () => {
-    const user = await createUser({ supabaseId: 'uid-plan', email: 'plan@t.com', subscriptionTier: 'free' })
+    const user = await createUser({ authId: 'uid-plan', email: 'plan@t.com', subscriptionTier: 'free' })
     const id = (user._id as { toString(): string }).toString()
 
     const res = await supertest(adminApp).patch(`/api/admin/users/${id}`).send({ subscriptionTier: 'pro' })
@@ -149,9 +149,9 @@ describe('PATCH /api/admin/users/:id', () => {
   })
 
   it('refuse de retirer son propre rôle admin', async () => {
-    // Créer l'utilisateur admin avec le même supabaseId que ADMIN_USER
+    // Créer l'utilisateur admin avec le même authId que ADMIN_USER
     const self = await createUser({
-      supabaseId: ADMIN_USER.supabaseId, // même supabaseId que req.user injecté
+      authId: ADMIN_USER.authId, // même authId que req.user injecté
       email: 'admin-self@t.com',
       isAdmin: true,
     })
@@ -175,7 +175,7 @@ describe('PATCH /api/admin/users/:id', () => {
   })
 
   it('retourne 400 pour un body invalide (subscriptionTier inconnu)', async () => {
-    const user = await createUser({ supabaseId: 'uid-bad', email: 'bad@t.com' })
+    const user = await createUser({ authId: 'uid-bad', email: 'bad@t.com' })
     const id = (user._id as { toString(): string }).toString()
 
     const res = await supertest(adminApp).patch(`/api/admin/users/${id}`).send({ subscriptionTier: 'enterprise' })
@@ -184,7 +184,7 @@ describe('PATCH /api/admin/users/:id', () => {
   })
 
   it('refuse un non-admin (403)', async () => {
-    const user = await createUser({ supabaseId: 'uid-member-target', email: 'mt@t.com' })
+    const user = await createUser({ authId: 'uid-member-target', email: 'mt@t.com' })
     const id = (user._id as { toString(): string }).toString()
 
     const res = await supertest(memberApp).patch(`/api/admin/users/${id}`).send({ isActive: false })
