@@ -38,8 +38,7 @@ router.post('/sync', async (req: AuthRequest, res: Response): Promise<void> => {
       // Pas bloquant — on utilise le fallback email
     }
 
-    const updateFields: Record<string, unknown> = {
-      authId,
+    const insertFields: Record<string, unknown> = {
       email,
       name: displayName,
       subscriptionTier: 'free',
@@ -47,13 +46,21 @@ router.post('/sync', async (req: AuthRequest, res: Response): Promise<void> => {
       isAdmin: false,
     }
     if (avatarUrl) {
-      updateFields.avatarUrl = avatarUrl
+      insertFields.avatarUrl = avatarUrl
     }
 
+    // Lie ce document au authId courant : si un compte existe déjà pour cet
+    // authId (reconnexion normale) OU pour cet email (l'utilisateur se
+    // connecte via un AUTRE provider — ex. Apple après Google — avec le même
+    // email vérifié), on met à jour son authId au lieu d'insérer un doublon.
+    // Google et Apple vérifient tous deux la propriété de l'email avant de
+    // le renvoyer, donc réassocier par email est sûr. Contrairement à
+    // Supabase, Appwrite ne lie pas automatiquement les comptes multi-provider.
     const user = await User.findOneAndUpdate(
-      { authId },
+      { $or: [{ authId }, { email }] },
       {
-        $setOnInsert: updateFields,
+        $set: { authId },
+        $setOnInsert: insertFields,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean()
